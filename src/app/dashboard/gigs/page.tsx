@@ -277,7 +277,8 @@ function GigMap({
           ? statusMapColors[gig.status]
           : "#71717a";
         el.style.zIndex = "1";
-        if (marker.getPopup().isOpen()) {
+        const popup = marker.getPopup();
+        if (popup?.isOpen()) {
           marker.togglePopup();
         }
       }
