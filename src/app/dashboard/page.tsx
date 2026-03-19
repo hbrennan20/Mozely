@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { format, isSameDay } from "date-fns";
 import {
   Card,
   CardContent,
@@ -21,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Calendar as CalendarWidget } from "@/components/ui/calendar";
 import {
   Calendar,
   DollarSign,
@@ -114,6 +116,57 @@ const allActivity = [
   },
 ];
 
+const calendarEvents = [
+  {
+    date: new Date(2026, 2, 15),
+    title: "Ronnie Scott's",
+    time: "9:00 PM",
+    type: "gig" as const,
+  },
+  {
+    date: new Date(2026, 2, 18),
+    title: "Studio session – Abbey Road",
+    time: "2:00 PM",
+    type: "session" as const,
+  },
+  {
+    date: new Date(2026, 2, 22),
+    title: "The Jazz Cafe",
+    time: "8:30 PM",
+    type: "gig" as const,
+  },
+  {
+    date: new Date(2026, 2, 25),
+    title: "Band rehearsal",
+    time: "4:00 PM",
+    type: "rehearsal" as const,
+  },
+  {
+    date: new Date(2026, 3, 2),
+    title: "KOKO",
+    time: "7:00 PM",
+    type: "gig" as const,
+  },
+  {
+    date: new Date(2026, 3, 8),
+    title: "Podcast interview – Jazz FM",
+    time: "11:00 AM",
+    type: "session" as const,
+  },
+  {
+    date: new Date(2026, 3, 14),
+    title: "Southbank Centre",
+    time: "8:00 PM",
+    type: "gig" as const,
+  },
+];
+
+const eventTypeColors = {
+  gig: "bg-primary",
+  session: "bg-blue-500",
+  rehearsal: "bg-amber-500",
+};
+
 const mozelySuggestions = [
   "Find me jazz gigs in London this month",
   "What's my next confirmed gig?",
@@ -130,6 +183,20 @@ export default function DashboardPage() {
     { role: "user" | "assistant"; text: string }[]
   >([]);
   const [askLoading, setAskLoading] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+
+  const eventDates = useMemo(
+    () => calendarEvents.map((e) => e.date),
+    []
+  );
+
+  const selectedDayEvents = useMemo(
+    () =>
+      selectedDate
+        ? calendarEvents.filter((e) => isSameDay(e.date, selectedDate))
+        : [],
+    [selectedDate]
+  );
 
   const displayedActivity = showAllActivity
     ? allActivity
@@ -329,6 +396,90 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Calendar */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Calendar</CardTitle>
+          <CardDescription>Your upcoming gigs, sessions &amp; rehearsals</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col md:flex-row gap-6">
+            <CalendarWidget
+              mode="single"
+              selected={selectedDate}
+              onSelect={setSelectedDate}
+              modifiers={{ event: eventDates }}
+              modifiersClassNames={{
+                event:
+                  "relative after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:h-1 after:w-1 after:rounded-full after:bg-primary",
+              }}
+              className="rounded-md border"
+            />
+            <div className="flex-1 min-w-0">
+              {selectedDate ? (
+                <div className="space-y-1">
+                  <h3 className="font-medium text-sm">
+                    {format(selectedDate, "EEEE, MMMM d")}
+                  </h3>
+                  {selectedDayEvents.length > 0 ? (
+                    <div className="space-y-3 mt-3">
+                      {selectedDayEvents.map((event, i) => (
+                        <div key={i} className="flex items-start gap-3">
+                          <div
+                            className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${eventTypeColors[event.type]}`}
+                          />
+                          <div>
+                            <p className="text-sm font-medium">{event.title}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {event.time}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      No events scheduled.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <h3 className="font-medium text-sm">Upcoming</h3>
+                  {calendarEvents.slice(0, 4).map((event, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <div
+                        className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${eventTypeColors[event.type]}`}
+                      />
+                      <div>
+                        <p className="text-sm font-medium">{event.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(event.date, "MMM d")} · {event.time}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-center gap-4 mt-4 pt-4 border-t">
+                <div className="flex items-center gap-1.5">
+                  <div className="h-2 w-2 rounded-full bg-primary" />
+                  <span className="text-xs text-muted-foreground">Gig</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="h-2 w-2 rounded-full bg-blue-500" />
+                  <span className="text-xs text-muted-foreground">Session</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="h-2 w-2 rounded-full bg-amber-500" />
+                  <span className="text-xs text-muted-foreground">Rehearsal</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Upcoming Gigs */}

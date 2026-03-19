@@ -11,6 +11,7 @@ import {
   Map,
   TrendingUp,
   Settings,
+  ExternalLink,
 } from "lucide-react";
 
 const navItems = [
@@ -19,6 +20,7 @@ const navItems = [
   { href: "/dashboard/tours", label: "Tours", icon: Map },
   { href: "/dashboard/radio", label: "Radio", icon: RadioTower },
   { href: "/dashboard/analytics", label: "Analytics", icon: TrendingUp },
+  { href: "/dashboard/booking", label: "Booking Portal", icon: ExternalLink },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 

@@ -50,7 +50,7 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList>
+        <TabsList variant="line">
           <TabsTrigger value="profile" className="gap-2">
             <Music className="h-4 w-4" />
             Profile
