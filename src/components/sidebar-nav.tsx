@@ -7,22 +7,18 @@ import {
   Music,
   LayoutDashboard,
   Calendar,
-  DollarSign,
-  MessageSquare,
-  FileText,
+  RadioTower,
+  Map,
   TrendingUp,
-  Bot,
   Settings,
 } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/gigs", label: "Gigs", icon: Calendar },
-  { href: "/dashboard/finances", label: "Finances", icon: DollarSign },
-  { href: "/dashboard/messages", label: "Messages", icon: MessageSquare },
-  { href: "/dashboard/contracts", label: "Contracts", icon: FileText },
+  { href: "/dashboard/tours", label: "Tours", icon: Map },
+  { href: "/dashboard/radio", label: "Radio", icon: RadioTower },
   { href: "/dashboard/analytics", label: "Analytics", icon: TrendingUp },
-  { href: "/dashboard/agent", label: "AI Agent", icon: Bot },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 

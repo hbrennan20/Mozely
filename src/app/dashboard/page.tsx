@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -12,6 +14,14 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
   Calendar,
   DollarSign,
   TrendingUp,
@@ -20,19 +30,21 @@ import {
   MapPin,
   Clock,
   ArrowUpRight,
+  Send,
+  Loader2,
 } from "lucide-react";
 
 const upcomingGigs = [
   {
-    venue: "The Blue Note",
+    venue: "Ronnie Scott's",
     date: "Mar 15, 2026",
     time: "9:00 PM",
-    location: "New York, NY",
-    fee: "$1,200",
+    location: "London, UK",
+    fee: "£1,200",
     status: "confirmed",
   },
   {
-    venue: "Ronnie Scott's",
+    venue: "The Jazz Cafe",
     date: "Mar 22, 2026",
     time: "8:30 PM",
     location: "London, UK",
@@ -40,16 +52,16 @@ const upcomingGigs = [
     status: "confirmed",
   },
   {
-    venue: "Jazz Cafe Sessions",
+    venue: "KOKO",
     date: "Apr 2, 2026",
     time: "7:00 PM",
-    location: "Los Angeles, CA",
-    fee: "$950",
+    location: "London, UK",
+    fee: "£950",
     status: "pending",
   },
 ];
 
-const recentActivity = [
+const allActivity = [
   {
     action: "Gig inquiry sent to The Troubadour",
     time: "2 hours ago",
@@ -75,9 +87,84 @@ const recentActivity = [
     time: "2 days ago",
     type: "message",
   },
+  {
+    action: "Merch store weekly report generated",
+    time: "3 days ago",
+    type: "report",
+  },
+  {
+    action: "Social media post scheduled for Friday",
+    time: "3 days ago",
+    type: "outreach",
+  },
+  {
+    action: "Gig at PizzaExpress Live marked as completed",
+    time: "4 days ago",
+    type: "contract",
+  },
+  {
+    action: "New venue lead: The Lexington, London",
+    time: "5 days ago",
+    type: "outreach",
+  },
+  {
+    action: "Invoice #1041 sent to Southbank Centre",
+    time: "5 days ago",
+    type: "payment",
+  },
+];
+
+const mozelySuggestions = [
+  "Find me jazz gigs in London this month",
+  "What's my next confirmed gig?",
+  "Send a follow-up to The Troubadour",
+  "Summarise my earnings this quarter",
 ];
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const [showAllActivity, setShowAllActivity] = useState(false);
+  const [askOpen, setAskOpen] = useState(false);
+  const [askInput, setAskInput] = useState("");
+  const [askMessages, setAskMessages] = useState<
+    { role: "user" | "assistant"; text: string }[]
+  >([]);
+  const [askLoading, setAskLoading] = useState(false);
+
+  const displayedActivity = showAllActivity
+    ? allActivity
+    : allActivity.slice(0, 5);
+
+  const handleAsk = () => {
+    const trimmed = askInput.trim();
+    if (!trimmed) return;
+
+    setAskMessages((prev) => [...prev, { role: "user", text: trimmed }]);
+    setAskInput("");
+    setAskLoading(true);
+
+    // Simulate agent response
+    setTimeout(() => {
+      const responses: Record<string, string> = {
+        gig: "I found 3 jazz venues in London with open slots this month. I'll send inquiries to The Troubadour, Servant Jazz Quarters, and Kansas Smitty's. Shall I go ahead?",
+        next: "Your next confirmed gig is at Ronnie Scott's on Mar 15 at 9:00 PM. Soundcheck is at 5 PM. Full band setup.",
+        follow: "I'll draft a follow-up email to The Troubadour referencing your last performance. I'll have it ready for your review in a moment.",
+        earn: "This quarter you've earned £4,850 from live performances and £1,200 from streaming royalties, totalling £6,050. That's up 15% from last quarter.",
+      };
+
+      const key = Object.keys(responses).find((k) =>
+        trimmed.toLowerCase().includes(k)
+      );
+      const reply =
+        key
+          ? responses[key]
+          : "I'm on it! Let me look into that and get back to you shortly. In the meantime, you can check your gigs page for the latest updates.";
+
+      setAskMessages((prev) => [...prev, { role: "assistant", text: reply }]);
+      setAskLoading(false);
+    }, 1200);
+  };
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -90,11 +177,94 @@ export default function DashboardPage() {
             Here&apos;s what&apos;s happening with your music career.
           </p>
         </div>
-        <Button>
+        <Button onClick={() => setAskOpen(true)}>
           <Bot className="mr-2 h-4 w-4" />
           Ask Mozely
         </Button>
       </div>
+
+      {/* Ask Mozely Dialog */}
+      <Dialog
+        open={askOpen}
+        onOpenChange={(open) => {
+          setAskOpen(open);
+          if (!open) {
+            setAskMessages([]);
+            setAskInput("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bot className="h-5 w-5" />
+              Ask Mozely
+            </DialogTitle>
+            <DialogDescription>
+              Ask your AI agent anything about your music career.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {askMessages.length === 0 && (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">Try asking:</p>
+                {mozelySuggestions.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    className="block w-full text-left text-sm rounded-md border px-3 py-2 hover:bg-muted/50 transition-colors"
+                    onClick={() => {
+                      setAskInput(s);
+                    }}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
+            {askMessages.length > 0 && (
+              <div className="max-h-64 overflow-y-auto space-y-3 rounded-md border p-3">
+                {askMessages.map((msg, i) => (
+                  <div
+                    key={i}
+                    className={`flex ${
+                      msg.role === "user" ? "justify-end" : "justify-start"
+                    }`}
+                  >
+                    <div
+                      className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
+                        msg.role === "user"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted"
+                      }`}
+                    >
+                      {msg.text}
+                    </div>
+                  </div>
+                ))}
+                {askLoading && (
+                  <div className="flex justify-start">
+                    <div className="bg-muted rounded-lg px-3 py-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Input
+                placeholder="Ask Mozely something..."
+                value={askInput}
+                onChange={(e) => setAskInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAsk()}
+              />
+              <Button size="icon" onClick={handleAsk} disabled={askLoading}>
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -106,13 +276,16 @@ export default function DashboardPage() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">$4,850</div>
+            <div className="text-2xl font-bold">£4,850</div>
             <p className="text-xs text-muted-foreground">
               <span className="text-green-600">+12%</span> from last month
             </p>
           </CardContent>
         </Card>
-        <Card>
+        <Card
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => router.push("/dashboard/gigs")}
+        >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">
               Upcoming Gigs
@@ -124,7 +297,10 @@ export default function DashboardPage() {
             <p className="text-xs text-muted-foreground">Next 30 days</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => router.push("/dashboard/analytics")}
+        >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">
               Monthly Streams
@@ -214,7 +390,7 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {recentActivity.map((activity, i) => (
+            {displayedActivity.map((activity, i) => (
               <div key={i} className="flex items-start gap-3">
                 <div className="mt-1 h-2 w-2 rounded-full bg-primary shrink-0" />
                 <div className="space-y-1">
@@ -225,8 +401,13 @@ export default function DashboardPage() {
                 </div>
               </div>
             ))}
-            <Button variant="outline" size="sm" className="w-full mt-2">
-              View All Activity
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full mt-2"
+              onClick={() => setShowAllActivity(!showAllActivity)}
+            >
+              {showAllActivity ? "Show Less" : "View All Activity"}
               <ArrowUpRight className="ml-2 h-3 w-3" />
             </Button>
           </CardContent>

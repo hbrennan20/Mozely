@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import {
@@ -16,10 +16,16 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Calendar,
   MapPin,
@@ -27,211 +33,38 @@ import {
   Plus,
   Bot,
   Search,
+  Loader2,
+  MoreHorizontal,
+  Trash2,
+  ExternalLink,
+  Copy,
+  FileText,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
+import { toast } from "sonner";
+import { jsPDF } from "jspdf";
+import type { Gig, GigStatus } from "@/app/api/gigs/route";
 
-mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
-
-type GigStatus = "confirmed" | "pending" | "inquiry" | "completed";
-
-interface Gig {
-  id: number;
+/** Shape returned by `GET /api/ticketmaster/events` for each event */
+type TicketmasterEventOption = {
+  id: string;
+  name: string;
   venue: string;
-  date: string;
-  time: string;
+  dateDisplay: string;
+  dateIso: string;
+  timeDisplay: string;
+  timeInput: string;
   location: string;
   fee: string;
-  status: GigStatus;
+  latitude: number | null;
+  longitude: number | null;
+  ticketUrl: string | null;
   type: string;
   notes: string;
-  lng: number;
-  lat: number;
-}
+};
 
-const allGigs: Gig[] = [
-  {
-    id: 1,
-    venue: "The Blue Note",
-    date: "Mar 15, 2026",
-    time: "9:00 PM",
-    location: "New York, NY",
-    fee: "$1,200",
-    status: "confirmed",
-    type: "Jazz Club",
-    notes: "Full band setup. Soundcheck at 5 PM.",
-    lng: -74.0004,
-    lat: 40.7306,
-  },
-  {
-    id: 2,
-    venue: "Ronnie Scott's",
-    date: "Mar 22, 2026",
-    time: "8:30 PM",
-    location: "London, UK",
-    fee: "\u00a3800",
-    status: "confirmed",
-    type: "Jazz Club",
-    notes: "Solo performance. Travel arranged.",
-    lng: -0.1318,
-    lat: 51.5134,
-  },
-  {
-    id: 3,
-    venue: "Jazz Cafe Sessions",
-    date: "Apr 2, 2026",
-    time: "7:00 PM",
-    location: "Los Angeles, CA",
-    fee: "$950",
-    status: "pending",
-    type: "Cafe",
-    notes: "Awaiting contract from venue.",
-    lng: -118.2437,
-    lat: 34.0522,
-  },
-  {
-    id: 4,
-    venue: "Monterey Jazz Festival",
-    date: "Apr 18, 2026",
-    time: "3:00 PM",
-    location: "Monterey, CA",
-    fee: "$3,500",
-    status: "inquiry",
-    type: "Festival",
-    notes: "Mozely sent inquiry. Waiting for response.",
-    lng: -121.8947,
-    lat: 36.6002,
-  },
-  {
-    id: 5,
-    venue: "Village Vanguard",
-    date: "Feb 28, 2026",
-    time: "8:00 PM",
-    location: "New York, NY",
-    fee: "$1,000",
-    status: "completed",
-    type: "Jazz Club",
-    notes: "Great show. Venue wants to rebook.",
-    lng: -74.0018,
-    lat: 40.7359,
-  },
-  {
-    id: 6,
-    venue: "Chicago Blues Fest",
-    date: "Feb 14, 2026",
-    time: "5:00 PM",
-    location: "Chicago, IL",
-    fee: "$2,000",
-    status: "completed",
-    type: "Festival",
-    notes: "Paid in full.",
-    lng: -87.6298,
-    lat: 41.8827,
-  },
-  // European Tour - May 2026
-  {
-    id: 7,
-    venue: "New Morning",
-    date: "May 1, 2026",
-    time: "9:00 PM",
-    location: "Paris, France",
-    fee: "\u20ac1,100",
-    status: "confirmed",
-    type: "Jazz Club",
-    notes: "European tour kickoff. Trio format.",
-    lng: 2.3522,
-    lat: 48.8716,
-  },
-  {
-    id: 8,
-    venue: "Bimhuis",
-    date: "May 3, 2026",
-    time: "8:30 PM",
-    location: "Amsterdam, Netherlands",
-    fee: "\u20ac950",
-    status: "confirmed",
-    type: "Jazz Club",
-    notes: "Sold out. Hotel booked near venue.",
-    lng: 4.9041,
-    lat: 52.3792,
-  },
-  {
-    id: 9,
-    venue: "A-Trane",
-    date: "May 5, 2026",
-    time: "9:30 PM",
-    location: "Berlin, Germany",
-    fee: "\u20ac900",
-    status: "confirmed",
-    type: "Jazz Club",
-    notes: "Two sets. Local rhythm section provided.",
-    lng: 13.3255,
-    lat: 52.5069,
-  },
-  {
-    id: 10,
-    venue: "Porgy & Bess",
-    date: "May 7, 2026",
-    time: "8:00 PM",
-    location: "Vienna, Austria",
-    fee: "\u20ac1,000",
-    status: "confirmed",
-    type: "Jazz Club",
-    notes: "Record label showcase. Press attending.",
-    lng: 16.3738,
-    lat: 48.2082,
-  },
-  {
-    id: 11,
-    venue: "Blue Note Milano",
-    date: "May 9, 2026",
-    time: "9:00 PM",
-    location: "Milan, Italy",
-    fee: "\u20ac1,200",
-    status: "confirmed",
-    type: "Jazz Club",
-    notes: "Full band flies in. Soundcheck at 4 PM.",
-    lng: 9.1900,
-    lat: 45.4642,
-  },
-  {
-    id: 12,
-    venue: "Jamboree",
-    date: "May 11, 2026",
-    time: "10:00 PM",
-    location: "Barcelona, Spain",
-    fee: "\u20ac850",
-    status: "pending",
-    type: "Jazz Club",
-    notes: "Contract under review by Mozely.",
-    lng: 2.1734,
-    lat: 41.3809,
-  },
-  {
-    id: 13,
-    venue: "North Sea Jazz Festival",
-    date: "May 15, 2026",
-    time: "4:00 PM",
-    location: "Rotterdam, Netherlands",
-    fee: "\u20ac3,000",
-    status: "inquiry",
-    type: "Festival",
-    notes: "Mozely submitted application. Major festival opportunity.",
-    lng: 4.4777,
-    lat: 51.9244,
-  },
-  {
-    id: 14,
-    venue: "Montreux Jazz Festival",
-    date: "May 18, 2026",
-    time: "7:00 PM",
-    location: "Montreux, Switzerland",
-    fee: "\u20ac4,500",
-    status: "inquiry",
-    type: "Festival",
-    notes: "Dream gig. Mozely negotiating with booker.",
-    lng: 6.9106,
-    lat: 46.4312,
-  },
-];
+mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
 
 const statusColors: Record<
   GigStatus,
@@ -250,13 +83,145 @@ const statusMapColors: Record<GigStatus, string> = {
   completed: "#d4d4d8",
 };
 
+function generateInvoicePdf(gig: Gig) {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const pageW = doc.internal.pageSize.getWidth();
+  const margin = 20;
+  let y = 25;
+
+  // Header
+  doc.setFontSize(22);
+  doc.setFont("helvetica", "bold");
+  doc.text("INVOICE", margin, y);
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(120, 120, 120);
+  doc.text(`Invoice #INV-${String(gig.id).padStart(4, "0")}`, pageW - margin, y, { align: "right" });
+  y += 6;
+  doc.text(`Date issued: ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}`, pageW - margin, y, { align: "right" });
+  y += 16;
+
+  // Divider
+  doc.setDrawColor(220, 220, 220);
+  doc.line(margin, y, pageW - margin, y);
+  y += 10;
+
+  // Bill To / From
+  doc.setTextColor(60, 60, 60);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text("BILL TO", margin, y);
+  doc.text("FROM", pageW / 2 + 10, y);
+  y += 5;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.text(gig.venue, margin, y);
+  doc.text("Artist Name", pageW / 2 + 10, y);
+  y += 5;
+  doc.text(gig.location, margin, y);
+  doc.text("artist@email.com", pageW / 2 + 10, y);
+  y += 15;
+
+  // Table header
+  doc.setFillColor(245, 245, 245);
+  doc.rect(margin, y - 4, pageW - margin * 2, 10, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(80, 80, 80);
+  doc.text("Description", margin + 4, y + 2);
+  doc.text("Date", pageW / 2, y + 2);
+  doc.text("Amount", pageW - margin - 4, y + 2, { align: "right" });
+  y += 12;
+
+  // Table row
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(30, 30, 30);
+  doc.text(`Live performance at ${gig.venue}`, margin + 4, y);
+  doc.text(`${gig.date} · ${gig.time}`, pageW / 2, y);
+  doc.text(gig.fee || "TBD", pageW - margin - 4, y, { align: "right" });
+  y += 6;
+  if (gig.type) {
+    doc.setFontSize(9);
+    doc.setTextColor(120, 120, 120);
+    doc.text(`Type: ${gig.type}`, margin + 4, y);
+    y += 6;
+  }
+
+  // Divider
+  y += 4;
+  doc.setDrawColor(220, 220, 220);
+  doc.line(margin, y, pageW - margin, y);
+  y += 10;
+
+  // Total
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(30, 30, 30);
+  doc.text("Total Due:", pageW - margin - 50, y);
+  doc.text(gig.fee || "TBD", pageW - margin - 4, y, { align: "right" });
+  y += 14;
+
+  // Notes
+  if (gig.notes) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 100);
+    doc.text("Notes:", margin, y);
+    y += 5;
+    const lines = doc.splitTextToSize(gig.notes, pageW - margin * 2);
+    doc.text(lines, margin, y);
+    y += lines.length * 4.5;
+  }
+
+  // Footer
+  y = doc.internal.pageSize.getHeight() - 15;
+  doc.setFontSize(8);
+  doc.setTextColor(160, 160, 160);
+  doc.text("Generated by Mozely", pageW / 2, y, { align: "center" });
+
+  const filename = `invoice-${gig.venue.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${gig.id}.pdf`;
+  doc.save(filename);
+}
+
+const getErrorInfo = (error: unknown): { name: string; message: string } => {
+  const name =
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error
+      ? String((error as { name?: unknown }).name)
+      : "";
+
+  const message =
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error
+      ? String((error as { message?: unknown }).message)
+      : "";
+
+  return { name, message };
+};
+
+const isAbortLikeError = (error: unknown): boolean => {
+  const { name, message } = getErrorInfo(error);
+  return (
+    name === "AbortError" ||
+    message.toLowerCase().includes("signal is aborted")
+  );
+};
+
 function GigCard({
   gig,
   onHover,
+  onClick,
+  onDelete,
   isActive,
 }: {
   gig: Gig;
   onHover: (id: number | null) => void;
+  onClick: (gig: Gig) => void;
+  onDelete: (gig: Gig) => void;
   isActive: boolean;
 }) {
   return (
@@ -266,6 +231,7 @@ function GigCard({
       }`}
       onMouseEnter={() => onHover(gig.id)}
       onMouseLeave={() => onHover(null)}
+      onClick={() => onClick(gig)}
     >
       <div className="space-y-1.5 min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
@@ -292,7 +258,62 @@ function GigCard({
           </span>
         </div>
       </div>
-      <p className="font-bold text-sm ml-2 shrink-0">{gig.fee}</p>
+      <div className="ml-2 shrink-0 flex items-center gap-1">
+        <p className="font-bold text-sm">{gig.fee}</p>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground"
+                aria-label={`More actions for ${gig.venue}`}
+                onClick={(event) => event.stopPropagation()}
+              />
+            }
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" side="bottom">
+            <DropdownMenuItem
+              onClick={() => {
+                onClick(gig);
+              }}
+            >
+              <ExternalLink className="h-4 w-4" />
+              View Details
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                navigator.clipboard.writeText(
+                  `${gig.venue} — ${gig.date} at ${gig.time}, ${gig.location}`
+                );
+                toast.success("Gig details copied to clipboard");
+              }}
+            >
+              <Copy className="h-4 w-4" />
+              Copy Details
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                generateInvoicePdf(gig);
+                toast.success("Invoice downloaded");
+              }}
+            >
+              <FileText className="h-4 w-4" />
+              Download Invoice
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => onDelete(gig)}
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete Gig
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
   );
 }
@@ -300,15 +321,66 @@ function GigCard({
 function GigMap({
   gigs,
   activeGigId,
+  selectedGigId,
   onMarkerClick,
 }: {
   gigs: Gig[];
   activeGigId: number | null;
+  selectedGigId: number | null;
   onMarkerClick: (id: number) => void;
 }) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<Map<number, mapboxgl.Marker>>(new Map());
+  const isTearingDownMapRef = useRef(false);
+
+  const makeMarkerElement = useCallback((gig: Gig) => {
+    const el = document.createElement("div");
+    el.className = "gig-marker";
+    el.style.width = "14px";
+    el.style.height = "14px";
+    el.style.borderRadius = "50%";
+    el.style.backgroundColor = statusMapColors[gig.status];
+    el.style.border = "2px solid white";
+    el.style.boxShadow = "0 1px 4px rgba(0,0,0,0.3)";
+    el.style.cursor = "pointer";
+    el.style.transition = "all 0.2s ease";
+    el.dataset.gigId = String(gig.id);
+    el.addEventListener("click", () => onMarkerClick(gig.id));
+    return el;
+  }, [onMarkerClick]);
+
+  const makeMarkerPopup = useCallback((gig: Gig) => {
+    return new mapboxgl.Popup({
+      offset: 12,
+      closeButton: false,
+      className: "gig-popup",
+    }).setHTML(
+      `<div style="font-family: Inter, sans-serif; padding: 2px 0;">
+        <strong style="font-size: 13px;">${gig.venue}</strong>
+        <div style="font-size: 11px; color: #71717a; margin-top: 2px;">${gig.date} &middot; ${gig.time}</div>
+        <div style="font-size: 11px; color: #71717a;">${gig.location}</div>
+        <div style="font-size: 12px; font-weight: 600; margin-top: 4px;">${gig.fee}</div>
+      </div>`
+    );
+  }, []);
+
+  useEffect(() => {
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      if (!isTearingDownMapRef.current) return;
+      if (isAbortLikeError(event.reason)) {
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener("unhandledrejection", handleUnhandledRejection);
+    return () => {
+      // Keep listener briefly so async abort rejections from map teardown are ignored.
+      window.setTimeout(() => {
+        window.removeEventListener("unhandledrejection", handleUnhandledRejection);
+      }, 1500);
+    };
+  }, []);
 
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
@@ -316,54 +388,63 @@ function GigMap({
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: "mapbox://styles/mapbox/light-v11",
-      center: [-40, 40],
-      zoom: 2.2,
+      center: [-0.1276, 51.5074],
+      zoom: 11,
+      minZoom: 2,
     });
 
     map.current.addControl(new mapboxgl.NavigationControl(), "top-right");
 
-    gigs.forEach((gig) => {
-      const el = document.createElement("div");
-      el.className = "gig-marker";
-      el.style.width = "14px";
-      el.style.height = "14px";
-      el.style.borderRadius = "50%";
-      el.style.backgroundColor = statusMapColors[gig.status];
-      el.style.border = "2px solid white";
-      el.style.boxShadow = "0 1px 4px rgba(0,0,0,0.3)";
-      el.style.cursor = "pointer";
-      el.style.transition = "all 0.2s ease";
-      el.dataset.gigId = String(gig.id);
+    return () => {
+      isTearingDownMapRef.current = true;
+      markersRef.current.forEach((marker) => marker.remove());
+      markersRef.current.clear();
 
-      el.addEventListener("click", () => onMarkerClick(gig.id));
+      const currentMap = map.current;
+      map.current = null;
+      if (!currentMap) return;
 
-      const popup = new mapboxgl.Popup({
-        offset: 12,
-        closeButton: false,
-        className: "gig-popup",
-      }).setHTML(
-        `<div style="font-family: Inter, sans-serif; padding: 2px 0;">
-          <strong style="font-size: 13px;">${gig.venue}</strong>
-          <div style="font-size: 11px; color: #71717a; margin-top: 2px;">${gig.date} &middot; ${gig.time}</div>
-          <div style="font-size: 11px; color: #71717a;">${gig.location}</div>
-          <div style="font-size: 12px; font-weight: 600; margin-top: 4px;">${gig.fee}</div>
-        </div>`
-      );
+      try {
+        currentMap.remove();
+      } catch (error) {
+        // Mapbox may throw AbortError while canceling in-flight requests during teardown.
+        if (!isAbortLikeError(error)) {
+          console.error("Unexpected map cleanup error:", error);
+        }
+      }
+    };
+  }, []);
 
-      const marker = new mapboxgl.Marker(el)
-        .setLngLat([gig.lng, gig.lat])
-        .setPopup(popup)
-        .addTo(map.current!);
+  useEffect(() => {
+    if (!map.current) return;
 
-      markersRef.current.set(gig.id, marker);
+    const nextIds = new Set(gigs.map((gig) => gig.id));
+
+    markersRef.current.forEach((marker, id) => {
+      if (!nextIds.has(id)) {
+        marker.remove();
+        markersRef.current.delete(id);
+      }
     });
 
-    return () => {
-      map.current?.remove();
-      map.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    gigs.forEach((gig) => {
+      const marker = markersRef.current.get(gig.id);
+      if (marker) {
+        marker.setLngLat([gig.lng, gig.lat]);
+        marker.setPopup(makeMarkerPopup(gig));
+        const el = marker.getElement();
+        el.style.backgroundColor = statusMapColors[gig.status];
+        return;
+      }
+
+      const newMarker = new mapboxgl.Marker(makeMarkerElement(gig))
+        .setLngLat([gig.lng, gig.lat])
+        .setPopup(makeMarkerPopup(gig))
+        .addTo(map.current!);
+
+      markersRef.current.set(gig.id, newMarker);
+    });
+  }, [gigs, makeMarkerElement, makeMarkerPopup]);
 
   useEffect(() => {
     markersRef.current.forEach((marker, id) => {
@@ -388,9 +469,11 @@ function GigMap({
         }
       }
     });
+  }, [activeGigId, gigs]);
 
-    if (activeGigId && map.current) {
-      const gig = gigs.find((g) => g.id === activeGigId);
+  useEffect(() => {
+    if (selectedGigId && map.current) {
+      const gig = gigs.find((g) => g.id === selectedGigId);
       if (gig) {
         map.current.flyTo({
           center: [gig.lng, gig.lat],
@@ -399,7 +482,7 @@ function GigMap({
         });
       }
     }
-  }, [activeGigId, gigs]);
+  }, [selectedGigId, gigs]);
 
   return (
     <div ref={mapContainer} className="w-full h-full rounded-lg" />
@@ -409,143 +492,561 @@ function GigMap({
 export default function GigsPage() {
   const [search, setSearch] = useState("");
   const [activeGigId, setActiveGigId] = useState<number | null>(null);
+  const [selectedGigId, setSelectedGigId] = useState<number | null>(null);
+  const [allGigs, setAllGigs] = useState<Gig[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const upcoming = allGigs.filter(
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [tmKeyword, setTmKeyword] = useState("");
+  const [tmCountry, setTmCountry] = useState("GB");
+  const [tmCity, setTmCity] = useState("London");
+  const [tmLoading, setTmLoading] = useState(false);
+  const [tmEvents, setTmEvents] = useState<TicketmasterEventOption[]>([]);
+  const [tmNotice, setTmNotice] = useState<string | null>(null);
+
+  const [showTmSearch, setShowTmSearch] = useState(false);
+
+  const [newVenue, setNewVenue] = useState("");
+  const [newDate, setNewDate] = useState("");
+  const [newTime, setNewTime] = useState("");
+  const [newLocation, setNewLocation] = useState("");
+  const [newFee, setNewFee] = useState("");
+  const [newStatus, setNewStatus] = useState<GigStatus>("pending");
+  const [newType, setNewType] = useState("Venue");
+  const [newNotes, setNewNotes] = useState("");
+
+  const resetAddGigForm = useCallback(() => {
+    setShowTmSearch(false);
+    setTmKeyword("");
+    setTmCountry("GB");
+    setTmCity("London");
+    setTmEvents([]);
+    setTmNotice(null);
+    setNewVenue("");
+    setNewDate("");
+    setNewTime("");
+    setNewLocation("");
+    setNewFee("");
+    setNewStatus("pending");
+    setNewType("Venue");
+    setNewNotes("");
+  }, []);
+
+  useEffect(() => {
+    if (!addDialogOpen) resetAddGigForm();
+  }, [addDialogOpen, resetAddGigForm]);
+
+  const searchTicketmaster = useCallback(async () => {
+    const keyword = tmKeyword.trim();
+    if (!keyword) {
+      setTmNotice("Enter a keyword to search Ticketmaster.");
+      return;
+    }
+    setTmLoading(true);
+    setTmNotice(null);
+    setTmEvents([]);
+    try {
+      const q = new URLSearchParams({ keyword, size: "10" });
+      if (tmCountry) q.set("countryCode", tmCountry);
+      if (tmCity.trim()) q.set("city", tmCity.trim());
+      const res = await fetch(`/api/ticketmaster/events?${q}`);
+      const data = (await res.json()) as {
+        configured?: boolean;
+        message?: string;
+        error?: string;
+        events?: TicketmasterEventOption[];
+      };
+
+      if (data.configured === false && data.message) {
+        setTmNotice(data.message);
+        return;
+      }
+      if (!res.ok || data.error) {
+        setTmNotice(data.error ?? "Could not reach Ticketmaster.");
+        return;
+      }
+      if (data.message && !data.events?.length) {
+        setTmNotice(data.message);
+        return;
+      }
+      const events = data.events ?? [];
+      setTmEvents(events);
+      if (events.length === 0) {
+        setTmNotice("No events found. Try a different keyword or country.");
+      }
+    } catch {
+      setTmNotice("Something went wrong. Try again.");
+    } finally {
+      setTmLoading(false);
+    }
+  }, [tmKeyword, tmCountry, tmCity]);
+
+  const applyTicketmasterEvent = useCallback((ev: TicketmasterEventOption) => {
+    setNewVenue(ev.venue);
+    setNewDate(ev.dateIso);
+    setNewTime(ev.timeInput);
+    setNewLocation(ev.location);
+    setNewFee(ev.fee);
+    const lines = [ev.name, ev.notes?.trim() || null, ev.ticketUrl ? `Tickets: ${ev.ticketUrl}` : null]
+      .filter(Boolean)
+      .join("\n\n");
+    setNewNotes(lines);
+  }, []);
+
+  const fetchGigs = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await fetch("/api/gigs");
+      if (!res.ok) throw new Error(`Failed to fetch gigs (${res.status})`);
+      const data: Gig[] = await res.json();
+      setAllGigs(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load gigs");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchGigs();
+  }, [fetchGigs]);
+
+  const filtered = search
+    ? allGigs.filter(
+        (g) =>
+          g.venue.toLowerCase().includes(search.toLowerCase()) ||
+          g.location.toLowerCase().includes(search.toLowerCase()) ||
+          g.type.toLowerCase().includes(search.toLowerCase())
+      )
+    : allGigs;
+
+  const upcoming = filtered.filter(
     (g) => g.status === "confirmed" || g.status === "pending"
   );
-  const inquiries = allGigs.filter((g) => g.status === "inquiry");
-  const past = allGigs.filter((g) => g.status === "completed");
+  const inquiries = filtered.filter((g) => g.status === "inquiry");
+  const past = filtered.filter((g) => g.status === "completed");
+  const selectedGig =
+    selectedGigId !== null ? allGigs.find((gig) => gig.id === selectedGigId) ?? null : null;
+
+  const [saving, setSaving] = useState(false);
+
+  const handleGigSelect = (gig: Gig) => {
+    setActiveGigId(gig.id);
+    setSelectedGigId(gig.id);
+  };
+
+  const handleMarkerClick = (id: number) => {
+    setActiveGigId(id);
+    setSelectedGigId(id);
+  };
+
+  const handleSaveGig = async () => {
+    if (!newVenue.trim()) {
+      toast.error("Venue name is required");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/gigs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          venue: newVenue.trim(),
+          date: newDate
+            ? new Date(newDate).toLocaleDateString("en-GB", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })
+            : "",
+          time: newTime
+            ? new Date(`1970-01-01T${newTime}`).toLocaleTimeString("en-GB", {
+                hour: "numeric",
+                minute: "2-digit",
+                hour12: true,
+              })
+            : "",
+          location: newLocation.trim(),
+          fee: newFee.trim(),
+          notes: newNotes.trim(),
+          status: newStatus,
+          type: newType,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to save gig");
+      toast.success(`${newVenue.trim()} added to your gigs`);
+      setAddDialogOpen(false);
+      fetchGigs();
+    } catch {
+      toast.error("Could not save gig. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteGig = async (gig: Gig) => {
+    try {
+      const res = await fetch(`/api/gigs?id=${gig.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete");
+      toast.success(`${gig.venue} deleted`);
+      if (selectedGigId === gig.id) setSelectedGigId(null);
+      fetchGigs();
+    } catch {
+      toast.error("Could not delete gig");
+    }
+  };
 
   return (
-    <div className="flex h-[calc(100vh-2rem)] gap-4 p-4">
-      {/* Left: Gig List */}
-      <div className="w-[420px] shrink-0 flex flex-col gap-4 overflow-hidden">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">Gigs</h1>
-            <p className="text-sm text-muted-foreground">
-              Manage your performances and bookings.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm">
-              <Bot className="mr-1 h-3 w-3" />
-              Find
-            </Button>
-            <Dialog>
-              <DialogTrigger className="inline-flex shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-xs font-medium h-7 gap-1 px-2 transition-all">
+    <>
+      <div className="flex h-[calc(100vh-2rem)] gap-4 p-4">
+        {/* Left: Gig List */}
+        <div className="w-[420px] shrink-0 flex flex-col gap-4 overflow-hidden">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold tracking-tight">Gigs</h1>
+              <p className="text-sm text-muted-foreground">
+                Manage your performances and bookings.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                className="h-7 gap-1 px-2 text-xs"
+                onClick={() => setAddDialogOpen(true)}
+              >
                 <Plus className="h-3 w-3" />
                 Add
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add a New Gig</DialogTitle>
-                  <DialogDescription>
-                    Enter the details for a new booking. Mozely can also find
-                    gigs for you automatically.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 pt-4">
-                  <Input placeholder="Venue name" />
-                  <div className="grid grid-cols-2 gap-4">
-                    <Input type="date" />
-                    <Input type="time" />
+              </Button>
+              <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Add a New Gig</DialogTitle>
+                    <DialogDescription>
+                      Enter your gig details below.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 pt-2">
+                    <Input
+                      placeholder="Venue name *"
+                      value={newVenue}
+                      onChange={(e) => setNewVenue(e.target.value)}
+                    />
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input
+                        type="date"
+                        value={newDate}
+                        onChange={(e) => setNewDate(e.target.value)}
+                      />
+                      <Input
+                        type="time"
+                        value={newTime}
+                        onChange={(e) => setNewTime(e.target.value)}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input
+                        placeholder="Location"
+                        value={newLocation}
+                        onChange={(e) => setNewLocation(e.target.value)}
+                      />
+                      <Input
+                        placeholder="Fee, e.g. £500"
+                        value={newFee}
+                        onChange={(e) => setNewFee(e.target.value)}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <select
+                        className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                        value={newStatus}
+                        onChange={(e) => setNewStatus(e.target.value as GigStatus)}
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="confirmed">Confirmed</option>
+                        <option value="inquiry">Inquiry</option>
+                        <option value="completed">Completed</option>
+                      </select>
+                      <select
+                        className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                        value={newType}
+                        onChange={(e) => setNewType(e.target.value)}
+                      >
+                        <option value="Venue">Venue</option>
+                        <option value="Jazz Club">Jazz Club</option>
+                        <option value="Live Music Venue">Live Music Venue</option>
+                        <option value="Festival">Festival</option>
+                        <option value="Concert Hall">Concert Hall</option>
+                        <option value="Private Event">Private Event</option>
+                        <option value="Corporate">Corporate</option>
+                      </select>
+                    </div>
+                    <Textarea
+                      placeholder="Notes"
+                      value={newNotes}
+                      onChange={(e) => setNewNotes(e.target.value)}
+                      rows={3}
+                    />
+
+                    {/* Collapsible Ticketmaster search */}
+                    <div className="rounded-lg border bg-muted/30">
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between p-3 text-xs font-medium text-muted-foreground hover:text-foreground"
+                        onClick={() => setShowTmSearch((v) => !v)}
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <Bot className="h-3.5 w-3.5" />
+                          Search Ticketmaster to pre-fill
+                        </span>
+                        {showTmSearch ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                      </button>
+                      {showTmSearch && (
+                        <div className="space-y-3 px-3 pb-3">
+                          <div className="flex flex-col gap-2 sm:flex-row">
+                            <Input
+                              placeholder="Keyword, e.g. jazz, artist name"
+                              value={tmKeyword}
+                              onChange={(e) => setTmKeyword(e.target.value)}
+                              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), searchTicketmaster())}
+                              className="flex-1"
+                            />
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              className="shrink-0"
+                              disabled={tmLoading}
+                              onClick={searchTicketmaster}
+                            >
+                              {tmLoading ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Search className="h-4 w-4" />
+                              )}
+                              <span className="ml-1">Search</span>
+                            </Button>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <label className="text-xs text-muted-foreground shrink-0">Country</label>
+                            <select
+                              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                              value={tmCountry}
+                              onChange={(e) => setTmCountry(e.target.value)}
+                            >
+                              <option value="">Any</option>
+                              <option value="US">United States</option>
+                              <option value="GB">United Kingdom</option>
+                              <option value="CA">Canada</option>
+                            </select>
+                            <label className="text-xs text-muted-foreground shrink-0">City</label>
+                            <Input
+                              className="h-9 w-36"
+                              placeholder="City"
+                              value={tmCity}
+                              onChange={(e) => setTmCity(e.target.value)}
+                            />
+                          </div>
+                          {tmNotice ? (
+                            <p className="text-xs text-amber-600 dark:text-amber-500">{tmNotice}</p>
+                          ) : null}
+                          {tmEvents.length > 0 ? (
+                            <ul className="max-h-44 space-y-1 overflow-y-auto rounded-md border bg-background p-1">
+                              {tmEvents.map((ev) => (
+                                <li key={ev.id}>
+                                  <button
+                                    type="button"
+                                    className="w-full rounded px-2 py-1.5 text-left text-xs hover:bg-muted"
+                                    onClick={() => applyTicketmasterEvent(ev)}
+                                  >
+                                    <span className="font-medium line-clamp-1">{ev.name}</span>
+                                    <span className="text-muted-foreground block">
+                                      {ev.venue} · {ev.dateDisplay}
+                                      {ev.timeDisplay !== "TBA" ? ` · ${ev.timeDisplay}` : ""}
+                                    </span>
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+
+                    <Button
+                      className="w-full"
+                      type="button"
+                      disabled={saving}
+                      onClick={handleSaveGig}
+                    >
+                      {saving ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : null}
+                      Save Gig
+                    </Button>
                   </div>
-                  <Input placeholder="Location" />
-                  <Input placeholder="Fee" />
-                  <Textarea placeholder="Notes" />
-                  <Button className="w-full">Save Gig</Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
+
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search gigs..."
+              className="pl-10"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+
+          {loading ? (
+            <div className="flex-1 flex items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : error ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-3">
+              <p className="text-sm text-destructive">{error}</p>
+              <Button variant="outline" size="sm" onClick={fetchGigs}>
+                Retry
+              </Button>
+            </div>
+          ) : (
+            <Tabs defaultValue="upcoming" className="flex flex-col flex-1 overflow-hidden">
+              <TabsList>
+                <TabsTrigger value="upcoming">
+                  Upcoming ({upcoming.length})
+                </TabsTrigger>
+                <TabsTrigger value="inquiries">
+                  Inquiries ({inquiries.length})
+                </TabsTrigger>
+                <TabsTrigger value="past">Past ({past.length})</TabsTrigger>
+              </TabsList>
+
+              <TabsContent
+                value="upcoming"
+                className="space-y-2 mt-3 overflow-y-auto flex-1 pr-1"
+              >
+                {upcoming.map((gig) => (
+                  <GigCard
+                    key={gig.id}
+                    gig={gig}
+                    onHover={setActiveGigId}
+                    onClick={handleGigSelect}
+                    onDelete={handleDeleteGig}
+                    isActive={activeGigId === gig.id}
+                  />
+                ))}
+              </TabsContent>
+
+              <TabsContent
+                value="inquiries"
+                className="space-y-2 mt-3 overflow-y-auto flex-1 pr-1"
+              >
+                {inquiries.length === 0 ? (
+                  <Card>
+                    <CardContent className="py-8 text-center text-muted-foreground">
+                      <Bot className="h-8 w-8 mx-auto mb-3 opacity-50" />
+                      <p>No active inquiries.</p>
+                      <p className="text-sm">
+                        Let Mozely find and reach out to venues for you.
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  inquiries.map((gig) => (
+                    <GigCard
+                      key={gig.id}
+                      gig={gig}
+                      onHover={setActiveGigId}
+                      onClick={handleGigSelect}
+                      onDelete={handleDeleteGig}
+                      isActive={activeGigId === gig.id}
+                    />
+                  ))
+                )}
+              </TabsContent>
+
+              <TabsContent
+                value="past"
+                className="space-y-2 mt-3 overflow-y-auto flex-1 pr-1"
+              >
+                {past.map((gig) => (
+                  <GigCard
+                    key={gig.id}
+                    gig={gig}
+                    onHover={setActiveGigId}
+                    onClick={handleGigSelect}
+                    onDelete={handleDeleteGig}
+                    isActive={activeGigId === gig.id}
+                  />
+                ))}
+              </TabsContent>
+            </Tabs>
+          )}
         </div>
 
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search gigs..."
-            className="pl-10"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+        {/* Right: Map */}
+        <div className="flex-1 rounded-lg border overflow-hidden">
+          <GigMap
+            gigs={allGigs}
+            activeGigId={activeGigId}
+            selectedGigId={selectedGigId}
+            onMarkerClick={handleMarkerClick}
           />
         </div>
-
-        <Tabs defaultValue="upcoming" className="flex flex-col flex-1 overflow-hidden">
-          <TabsList>
-            <TabsTrigger value="upcoming">
-              Upcoming ({upcoming.length})
-            </TabsTrigger>
-            <TabsTrigger value="inquiries">
-              Inquiries ({inquiries.length})
-            </TabsTrigger>
-            <TabsTrigger value="past">Past ({past.length})</TabsTrigger>
-          </TabsList>
-
-          <TabsContent
-            value="upcoming"
-            className="space-y-2 mt-3 overflow-y-auto flex-1 pr-1"
-          >
-            {upcoming.map((gig) => (
-              <GigCard
-                key={gig.id}
-                gig={gig}
-                onHover={setActiveGigId}
-                isActive={activeGigId === gig.id}
-              />
-            ))}
-          </TabsContent>
-
-          <TabsContent
-            value="inquiries"
-            className="space-y-2 mt-3 overflow-y-auto flex-1 pr-1"
-          >
-            {inquiries.length === 0 ? (
-              <Card>
-                <CardContent className="py-8 text-center text-muted-foreground">
-                  <Bot className="h-8 w-8 mx-auto mb-3 opacity-50" />
-                  <p>No active inquiries.</p>
-                  <p className="text-sm">
-                    Let Mozely find and reach out to venues for you.
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              inquiries.map((gig) => (
-                <GigCard
-                  key={gig.id}
-                  gig={gig}
-                  onHover={setActiveGigId}
-                  isActive={activeGigId === gig.id}
-                />
-              ))
-            )}
-          </TabsContent>
-
-          <TabsContent
-            value="past"
-            className="space-y-2 mt-3 overflow-y-auto flex-1 pr-1"
-          >
-            {past.map((gig) => (
-              <GigCard
-                key={gig.id}
-                gig={gig}
-                onHover={setActiveGigId}
-                isActive={activeGigId === gig.id}
-              />
-            ))}
-          </TabsContent>
-        </Tabs>
       </div>
 
-      {/* Right: Map */}
-      <div className="flex-1 rounded-lg border overflow-hidden">
-        <GigMap
-          gigs={allGigs}
-          activeGigId={activeGigId}
-          onMarkerClick={setActiveGigId}
-        />
-      </div>
-    </div>
+      <Dialog open={selectedGigId !== null} onOpenChange={(open) => !open && setSelectedGigId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{selectedGig?.venue ?? "Gig details"}</DialogTitle>
+            <DialogDescription>
+              {selectedGig ? "Booking details and quick actions." : "Select a gig to view details."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedGig && (
+            <div className="space-y-4 text-sm">
+              <div className="grid grid-cols-[auto_1fr] gap-2 text-muted-foreground">
+                <span className="font-medium text-foreground">Status:</span>
+                <Badge variant={statusColors[selectedGig.status]} className="w-fit">
+                  {selectedGig.status}
+                </Badge>
+                <span className="font-medium text-foreground">Type:</span>
+                <span>{selectedGig.type}</span>
+                <span className="font-medium text-foreground">Date:</span>
+                <span>
+                  {selectedGig.date} at {selectedGig.time}
+                </span>
+                <span className="font-medium text-foreground">Location:</span>
+                <span>{selectedGig.location}</span>
+                <span className="font-medium text-foreground">Fee:</span>
+                <span className="font-semibold text-foreground">{selectedGig.fee}</span>
+              </div>
+              {selectedGig.notes ? (
+                <div className="rounded-md border bg-muted/30 p-3">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Notes</p>
+                  <p>{selectedGig.notes}</p>
+                </div>
+              ) : null}
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => {
+                  generateInvoicePdf(selectedGig);
+                  toast.success("Invoice downloaded");
+                }}
+              >
+                <FileText className="h-4 w-4 mr-1.5" />
+                Download Invoice PDF
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

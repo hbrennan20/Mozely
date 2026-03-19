@@ -108,7 +108,15 @@ export default function LandingPage() {
             >
               Start Free <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
-            <Button size="lg" variant="outline">
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={() =>
+                document
+                  .getElementById("features")
+                  ?.scrollIntoView({ behavior: "smooth" })
+              }
+            >
               See How It Works
             </Button>
           </div>
@@ -116,7 +124,7 @@ export default function LandingPage() {
       </section>
 
       {/* Features */}
-      <section className="py-20 px-6 bg-muted/50">
+      <section id="features" className="py-20 px-6 bg-muted/50">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold tracking-tight">
